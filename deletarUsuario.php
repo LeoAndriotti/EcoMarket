@@ -1,83 +1,41 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
+require_once 'config/bootstrap.php';
 require_once './classes/DataBase.php';
-require_once './classes/Usuario.php';
-$db = (new DataBase())->getConnection();
-$usuario = new Usuario($db);
-$mensagem = '';
-
 
 session_start();
+$db = DataBase::getConnection();
+$mensagem = '';
 
-//  Verifica se o usuário está logado
-if (isset($_SESSION['id'])) {
-    $id = intval($_SESSION['id']);
-    if ($id > 0) {
-        if (!isset($_POST['confirmar'])) {
-            // Exibe confirmação
-            $mensagem = "<form method='POST' style='display: flex; flex-direction: column; align-items: center;'><div style='color: #d32f2f; margin-bottom: 10px; text-align:center;'>Você realmente tem certeza que deseja excluir sua conta?</div><input type='hidden' name='confirmar' value='1'><button type='submit' style='background:#d32f2f;color:#fff;border:none;padding:10px 20px;border-radius:5px;cursor:pointer; margin: 0 auto; display: block;'>Sim, excluir</button></form>";
-        } else {
-            $stmt = $db->prepare("DELETE FROM tbUsu WHERE id = ?");
-            if ($stmt === false) {
-                $mensagem = "<div style='color: #d32f2f; margin-bottom: 10px;'>Erro ao preparar a query de exclusão: " . htmlspecialchars($db->error) . "</div>";
-            } else {
-                $stmt->bind_param('i', $id);
-                if ($stmt->execute()) {
-                    // desloga o usuário
-                    session_destroy();
-                    header('Location: index.php');
-                    exit;
-                } else {
-                    $mensagem = "<div style='color: #d32f2f; margin-bottom: 10px;'>Erro ao deletar usuário: " . htmlspecialchars($stmt->error) . "</div>";
-                }
-                $stmt->close();
-            }
-        }
-    } else {
-        $mensagem = "<div style='color: #d32f2f; margin-bottom: 10px;'>ID inválido.</div>";
-    } 
+if (!isset($_SESSION['id'])) {
+    $mensagem = '<div class="alert alert--error">Nenhum usuário logado.</div>';
 } else {
-    $mensagem = "<div style='color: #d32f2f; margin-bottom: 10px;'>Nenhum usuário logado.</div>";
+    $id = (int) $_SESSION['id'];
+    if ($id > 0 && !isset($_POST['confirmar'])) {
+        $mensagem = '<form method="POST"><p style="margin-bottom:1rem;">Confirma a exclusão permanente da sua conta e de todos os produtos vinculados?</p><input type="hidden" name="confirmar" value="1"><button type="submit" class="btn btn--danger btn--block">Sim, excluir conta</button></form>';
+    } elseif ($id > 0) {
+        $stmt = $db->prepare('DELETE FROM tbproduto WHERE id_usuario = ?');
+        $stmt->execute([$id]);
+        $stmt = $db->prepare('DELETE FROM tbusu WHERE id = ?');
+        if ($stmt->execute([$id])) {
+            session_destroy();
+            header('Location: index.php');
+            exit;
+        }
+        $mensagem = '<div class="alert alert--error">Erro ao excluir usuário.</div>';
+    }
 }
+
+$pageTitle = 'Excluir conta — EcoMarket';
+$bodyClass = 'page-auth';
+require_once 'includes/head.php';
 ?>
-<!DOCTYPE html>
-<html lang="pt-br">
 
-<head>
-    <meta charset="UTF-8">
-    <title>Deletar Usuário - EcoMarket</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            background: #eafaf1;
-            font-family: Arial, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .card-deletar {
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
-            padding: 30px 25px 20px 25px;
-            max-width: 350px;
-            width: 100%;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="card-deletar">
-        <h2 style="color: #219150; text-align: center;">Deletar Usuário</h2>
-        <?= $mensagem ?>
-        <a href="dashboard.php"
-            style="display: block; text-align: center; color: #219150; text-decoration: underline; margin-top: 20px;">Voltar</a>
+<div class="auth-layout">
+    <div class="auth-panel">
+        <h1 style="text-align:center;color:var(--color-error);font-size:1.25rem;">Excluir conta</h1>
+        <?php echo $mensagem; ?>
+        <p style="text-align:center;margin-top:1rem;"><a href="dashboard.php">Cancelar</a></p>
     </div>
+</div>
 </body>
-
 </html>

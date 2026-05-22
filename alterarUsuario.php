@@ -1,22 +1,17 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
+require_once 'config/bootstrap.php';
 require_once './classes/DataBase.php';
 require_once './classes/Usuario.php';
 
 session_start();
 if (!isset($_SESSION['id'])) {
     header('Location: login.php');
-    exit();
+    exit;
 }
 
 $db = DataBase::getConnection();
 $usuario = new Usuario($db);
 $mensagem = '';
-
-// Carrega dados do usuário atual
 $dadosUsuario = $usuario->buscarPorId($_SESSION['id']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -25,249 +20,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $telefone = $_POST['telefone'];
     $senha_atual = $_POST['senha_atual'] ?? '';
     $nova_senha = $_POST['nova_senha'] ?? '';
-    
-    // Validação do telefone
+
     if (!preg_match('/^\d{10,11}$/', $telefone)) {
-        $mensagem = "<div style='color: #d32f2f; margin-bottom: 15px; padding: 10px; background-color: #ffebee; border-radius: 5px; text-align: center;'>O telefone deve conter apenas números e ter 10 ou 11 dígitos.</div>";
-    } else {
-        // Verifica se quer alterar a senha
-        if (!empty($nova_senha)) {
-            // Valida a nova senha
-            if (
-                strlen($nova_senha) < 8 ||
-                !preg_match('/[A-Z]/', $nova_senha) ||
-                !preg_match('/[\W_]/', $nova_senha)
-            ) {
-                $mensagem = "<div style='color: #d32f2f; margin-bottom: 15px; padding: 10px; background-color: #ffebee; border-radius: 5px; text-align: center;'>A nova senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um caractere especial.</div>";
-            } else if (!$usuario->verificarSenha($_SESSION['id'], $senha_atual)) {
-                $mensagem = "<div style='color: #d32f2f; margin-bottom: 15px; padding: 10px; background-color: #ffebee; border-radius: 5px; text-align: center;'>Senha atual incorreta.</div>";
-            } else {
-                // Atualiza com nova senha
-                if ($usuario->atualizar($_SESSION['id'], $nome, $email, $nova_senha, $telefone)) {
-                    $mensagem = "<div style='color: #388e3c; margin-bottom: 15px; padding: 10px; background-color: #e8f5e9; border-radius: 5px; text-align: center;'>Dados atualizados com sucesso!</div>";
-                    $dadosUsuario = $usuario->buscarPorId($_SESSION['id']); // Atualiza dados locais
-                } else {
-                    $mensagem = "<div style='color: #d32f2f; margin-bottom: 15px; padding: 10px; background-color: #ffebee; border-radius: 5px; text-align: center;'>Erro ao atualizar dados.</div>";
-                }
-            }
+        $mensagem = '<div class="alert alert--error">O telefone deve conter 10 ou 11 dígitos numéricos.</div>';
+    } elseif (!empty($nova_senha)) {
+        if (strlen($nova_senha) < 8 || !preg_match('/[A-Z]/', $nova_senha) || !preg_match('/[\W_]/', $nova_senha)) {
+            $mensagem = '<div class="alert alert--error">A nova senha deve ter 8+ caracteres, uma maiúscula e um especial.</div>';
+        } elseif (!$usuario->verificarSenha($_SESSION['id'], $senha_atual)) {
+            $mensagem = '<div class="alert alert--error">Senha atual incorreta.</div>';
+        } elseif ($usuario->atualizar($_SESSION['id'], $nome, $email, $nova_senha, $telefone)) {
+            $mensagem = '<div class="alert alert--success">Dados atualizados com sucesso.</div>';
+            $dadosUsuario = $usuario->buscarPorId($_SESSION['id']);
+            $_SESSION['nome'] = $dadosUsuario['nome'];
         } else {
-            // Atualiza sem alterar senha
-            if ($usuario->atualizar($_SESSION['id'], $nome, $email, $dadosUsuario['senha'], $telefone)) {
-                $mensagem = "<div style='color: #388e3c; margin-bottom: 15px; padding: 10px; background-color: #e8f5e9; border-radius: 5px; text-align: center;'>Dados atualizados com sucesso!</div>";
-                $dadosUsuario = $usuario->buscarPorId($_SESSION['id']); // Atualiza dados locais
-            } else {
-                $mensagem = "<div style='color: #d32f2f; margin-bottom: 15px; padding: 10px; background-color: #ffebee; border-radius: 5px; text-align: center;'>Erro ao atualizar dados.</div>";
-            }
+            $mensagem = '<div class="alert alert--error">Erro ao atualizar dados.</div>';
         }
+    } elseif ($usuario->atualizar($_SESSION['id'], $nome, $email, $dadosUsuario['senha'], $telefone)) {
+        $mensagem = '<div class="alert alert--success">Dados atualizados com sucesso.</div>';
+        $dadosUsuario = $usuario->buscarPorId($_SESSION['id']);
+        $_SESSION['nome'] = $dadosUsuario['nome'];
+    } else {
+        $mensagem = '<div class="alert alert--error">Erro ao atualizar dados.</div>';
     }
 }
+
+$pageTitle = 'Editar perfil — EcoMarket';
+$bodyClass = 'page-form';
+$navActive = 'dashboard';
+require_once 'includes/head.php';
+require_once 'includes/navbar.php';
 ?>
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Editar Perfil - EcoMarket</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        body {
-            background: #eafaf1;
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        .card-alterar {
-            background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
-            padding: 30px 25px 20px 25px;
-            max-width: 350px;
-            margin: 60px auto;
-        }
-        .eco-logo {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .eco-logo img {
-            width: 110px;
-            margin-bottom: 10px;
-        }
-        .form-control {
-            border-radius: 5px;
-            border: 1px solid #b2dfdb;
-            margin-bottom: 15px;
-            padding: 10px;
-            width: 90%;
-            margin-left: auto;
-            margin-right: auto;
-            display: block;
-        }
-        .btn-alterar {
-            background: #219150;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            width: 90%;
-            padding: 10px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 10px auto;
-            display: block;
-            transition: background 0.2s;
-        }
-        .btn-alterar:hover {
-            background: #176c3a;
-        }
-        .voltar-link {
-            display: block;
-            text-align: center;
-            margin-top: 15px;
-            color: #219150;
-            text-decoration: none;
-        }
-        .voltar-link:hover {
-            text-decoration: underline;
-        }
-        .senha-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-            width: 90%;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .senha-section h3 {
-            margin-bottom: 15px;
-            color: #219150;
-            font-size: 1rem;
-            text-align: center;
-        }
-        .senha-section small {
-            display: block;
-            margin-bottom: 10px;
-            color: #666;
-            text-align: center;
-            font-size: 0.85rem;
-        }
-        #erro-telefone {
-            color: #d32f2f;
-            width: 90%;
-            margin: 0 auto 15px auto;
-            text-align: left;
-            font-size: 0.95rem;
-            display: none;
-        }
-        .btn-excluir {
-            background: #d32f2f;
-            color: #fff;
-            border: none;
-            border-radius: 5px;
-            width: 90%;
-            padding: 10px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 10px auto;
-            display: block;
-            transition: background 0.2s;
-        }
-        .btn-excluir:hover {
-            background: #b71c1c;
-        }
-    </style>
-</head>
-<body>
-    <div class="card-alterar">
-        <div class="eco-logo">
-            <img src="assets/logo.png" alt="EcoMarket Logo">
+
+<main class="page-wrap">
+    <div class="container container--narrow">
+        <div class="form-card">
+            <h1>Editar perfil</h1>
+            <p class="subtitle">Dados da conta do produtor</p>
+            <?php echo $mensagem; ?>
+            <form method="POST" id="form-alterar">
+                <div class="form-group">
+                    <label for="nome">Nome</label>
+                    <input type="text" class="form-control" name="nome" id="nome" value="<?php echo htmlspecialchars($dadosUsuario['nome'] ?? ''); ?>" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" class="form-control" name="email" id="email" value="<?php echo htmlspecialchars($dadosUsuario['email'] ?? ''); ?>" required>
+                </div>
+                <div class="form-group">
+                    <label for="telefone">Telefone</label>
+                    <input type="tel" class="form-control" name="telefone" id="telefone" maxlength="11" value="<?php echo htmlspecialchars($dadosUsuario['telefone'] ?? ''); ?>" required>
+                    <small id="erro-telefone" class="alert alert--error" style="display:none;margin-top:0.5rem;">Telefone inválido.</small>
+                </div>
+                <hr style="border:none;border-top:1px solid var(--color-border);margin:1.5rem 0;">
+                <p style="font-weight:600;color:var(--color-primary);margin-bottom:1rem;">Alterar senha (opcional)</p>
+                <div class="form-group">
+                    <label for="senha_atual">Senha atual</label>
+                    <input type="password" class="form-control" name="senha_atual" id="senha_atual">
+                </div>
+                <div class="form-group">
+                    <label for="nova_senha">Nova senha</label>
+                    <input type="password" class="form-control" name="nova_senha" id="nova_senha">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn--primary">Salvar</button>
+                    <a href="dashboard.php" class="btn btn--ghost">Voltar</a>
+                </div>
+            </form>
+            <hr style="border:none;border-top:1px solid var(--color-border);margin:2rem 0 1rem;">
+            <p style="font-size:0.875rem;color:var(--color-text-muted);text-align:center;margin-bottom:0.75rem;">Zona de perigo</p>
+            <button type="button" class="btn btn--danger btn--block" id="btn-excluir">Excluir minha conta</button>
         </div>
-        <?= $mensagem ?>
-        <form method="POST" id="form-alterar">
-            <input type="text" class="form-control" name="nome" placeholder="Nome" value="<?= htmlspecialchars($dadosUsuario['nome'] ?? '') ?>" required>
-            <input type="email" class="form-control" name="email" placeholder="E-mail" value="<?= htmlspecialchars($dadosUsuario['email'] ?? '') ?>" required>
-            <input type="tel" class="form-control" name="telefone" placeholder="Telefone" value="<?= htmlspecialchars($dadosUsuario['telefone'] ?? '') ?>" maxlength="11" required>
-            <div id="erro-telefone">O telefone deve conter apenas números e ter 10 ou 11 dígitos.</div>
-            
-            <div class="senha-section">
-                <h3>Alterar Senha</h3>
-                <input type="password" class="form-control" name="senha_atual" placeholder="Senha Atual">
-                <input type="password" class="form-control" name="nova_senha" placeholder="Nova Senha">
-                <small>Deixe em branco se não quiser alterar a senha</small>
-            </div>
-            
-            <button type="submit" class="btn-alterar">Salvar Alterações</button>
-            <a href="dashboard.php" class="voltar-link">Voltar ao Dashboard</a>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; width: 90%; margin-left: auto; margin-right: auto;">
-                <h3 style="margin-bottom: 15px; color: #d32f2f; font-size: 1rem; text-align: center;">Zona de Perigo</h3>
-                <button type="button" id="btn-excluir" class="btn-excluir">Excluir Conta</button>
-            </div>
-        </form>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('form-alterar');
-            const erroTelefone = document.getElementById('erro-telefone');
-            const campoTelefone = form.querySelector('input[name="telefone"]');
-            
-            // Validação do formulário
-            form.addEventListener('submit', function(e) {
-                const telefone = campoTelefone.value;
-                const novaSenha = form.querySelector('input[name="nova_senha"]').value;
-                let erro = false;
-                
-                // Validação do telefone
-                if (!/^\d{10,11}$/.test(telefone)) {
-                    erroTelefone.style.display = 'block';
-                    erro = true;
-                } else {
-                    erroTelefone.style.display = 'none';
-                }
-                
-                // Validação da senha (se foi preenchida)
-                if (novaSenha.trim() !== '') {
-                    const regexMaiuscula = /[A-Z]/;
-                    const regexEspecial = /[\W_]/;
-                    
-                    if (
-                        novaSenha.length < 8 ||
-                        !regexMaiuscula.test(novaSenha) ||
-                        !regexEspecial.test(novaSenha)
-                    ) {
-                        alert('A nova senha deve ter pelo menos 8 caracteres, uma letra maiúscula e um caractere especial.');
-                        erro = true;
-                    }
-                }
-                
-                if (erro) {
-                    e.preventDefault();
-                }
-            });
-            
-            // Validação do telefone em tempo real
-            campoTelefone.addEventListener('input', function() {
-                // Permite apenas números
-                if (!/^\d*$/.test(this.value)) {
-                    this.value = this.value.replace(/\D/g, '');
-                }
-                // Limita a 11 caracteres
-                if (this.value.length > 11) {
-                    this.value = this.value.slice(0, 11);
-                }
-            });
-            
-            // Funcionalidade do botão excluir
-            const btnExcluir = document.getElementById('btn-excluir');
-            btnExcluir.addEventListener('click', function() {
-                if (confirm('ATENÇÃO: Você realmente tem certeza que deseja excluir sua conta?\n\nEsta ação é IRREVERSÍVEL e todos os seus dados serão perdidos permanentemente.')) {
-                    if (confirm('ÚLTIMA CHANCE: Tem certeza absoluta que deseja excluir sua conta?\n\nEsta ação não pode ser desfeita.')) {
-                        window.location.href = 'deletarUsuario.php';
-                    }
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+</main>
+
+<script>
+document.getElementById('form-alterar').addEventListener('submit', function (e) {
+    const tel = document.getElementById('telefone').value;
+    const err = document.getElementById('erro-telefone');
+    err.style.display = 'none';
+    if (!/^\d{10,11}$/.test(tel)) { err.style.display = 'block'; e.preventDefault(); }
+});
+document.getElementById('telefone').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 11);
+});
+document.getElementById('btn-excluir').addEventListener('click', function () {
+    if (confirm('Excluir sua conta permanentemente?') && confirm('Esta ação é irreversível. Confirmar?')) {
+        window.location.href = 'deletarUsuario.php';
+    }
+});
+</script>
+<?php require_once 'includes/footer.php'; ?>

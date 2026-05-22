@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!email || !senha) {
             loginMessage.textContent = 'Preencha todos os campos.';
+            loginMessage.className = 'alert alert--error';
+            loginMessage.style.display = 'block';
             return;
         }
 
@@ -34,14 +36,19 @@ document.addEventListener('DOMContentLoaded', function () {
             } catch (parseError) {
                 console.error('Erro ao fazer parse do JSON:', parseError);
                 loginMessage.textContent = 'Erro no formato da resposta do servidor';
+                loginMessage.className = 'alert alert--error';
+                loginMessage.style.display = 'block';
                 return;
             }
 
             if (data.erro) {
                 loginMessage.textContent = data.erro;
+                loginMessage.className = 'alert alert--error';
+                loginMessage.style.display = 'block';
             } else if (data.sucesso) {
-                loginMessage.style.color = 'lightgreen';
+                loginMessage.className = 'alert alert--success';
                 loginMessage.textContent = 'Login realizado com sucesso!';
+                loginMessage.style.display = 'block';
                 // Redirecionar para o dashboard após login bem-sucedido
                 setTimeout(() => {
                     if (data.redirect) {
@@ -53,6 +60,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } catch (error) {
             loginMessage.textContent = 'Erro na requisição: ' + error.message;
+            loginMessage.className = 'alert alert--error';
+            loginMessage.style.display = 'block';
             console.error('Erro completo:', error);
         }
     });
